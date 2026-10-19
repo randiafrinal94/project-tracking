@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Pill } from '@/components/ui/badge';
 import { Button, IconButton } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
-import { Field, Input } from '@/components/ui/input';
+import { Field, Input, PasswordInput } from '@/components/ui/input';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/states';
@@ -416,10 +416,10 @@ function ProfileTab() {
         <CardHeader icon="lock" title="Change password" />
         <form className="flex flex-col gap-space-md" onSubmit={(e) => { e.preventDefault(); changePassword.mutate(); }}>
           <Field id={`${id}-current`} label="Current password" error={pwErrors.currentPassword}>
-            <Input id={`${id}-current`} type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} />
+            <PasswordInput id={`${id}-current`} autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} />
           </Field>
           <Field id={`${id}-new`} label="New password" error={pwErrors.newPassword} hint="At least 8 characters with a letter and a number.">
-            <Input id={`${id}-new`} type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
+            <PasswordInput id={`${id}-new`} autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
           </Field>
           <div className="flex justify-end">
             <Button type="submit" variant="primary" loading={changePassword.isPending} disabled={!currentPassword || !newPassword}>Update password</Button>

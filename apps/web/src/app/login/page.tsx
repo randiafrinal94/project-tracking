@@ -6,7 +6,7 @@ import { AuthCard } from '@/components/layout/auth-card';
 import { FullScreenLoader } from '@/components/layout/auth-gate';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Field, Input } from '@/components/ui/input';
+import { Field, Input, PasswordInput } from '@/components/ui/input';
 import { ApiError } from '@/lib/api';
 import type { Me } from '@/lib/types';
 import { NoWorkspaceError, useAuth } from '@/providers/auth-provider';
@@ -154,9 +154,8 @@ function LoginForm() {
           />
         </Field>
         <Field id={`${id}-password`} label="Password" error={fieldErrors.password} hint={!isLogin ? 'At least 8 characters with a letter and a number.' : undefined}>
-          <Input
+          <PasswordInput
             id={`${id}-password`}
-            type="password"
             autoComplete={isLogin ? 'current-password' : 'new-password'}
             required
             icon="lock"

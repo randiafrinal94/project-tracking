@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useState, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
 import { Icon } from './icon';
 import { Kbd } from './kbd';
@@ -13,12 +13,14 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Shortcut di sisi kanan, mis. ⌘K. */
   shortcut?: string;
   inputSize?: 'sm' | 'md' | 'lg';
+  /** Kontrol interaktif di sisi kanan, mis. tombol show password. */
+  trailing?: ReactNode;
 }
 
 const HEIGHT = { sm: 'h-8', md: 'h-9', lg: 'h-10' } as const;
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { icon, shortcut, inputSize = 'md', className, ...props },
+  { icon, shortcut, trailing, inputSize = 'md', className, ...props },
   ref,
 ) {
   return (
@@ -36,14 +38,48 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           FIELD,
           HEIGHT[inputSize],
           icon ? (inputSize === 'sm' ? 'pl-8' : 'pl-9') : 'pl-space-md',
-          shortcut ? 'pr-14' : 'pr-3',
+          shortcut ? 'pr-14' : trailing ? 'pr-10' : 'pr-3',
         )}
         {...props}
       />
       {shortcut && <Kbd className="pointer-events-none absolute right-space-sm">{shortcut}</Kbd>}
+      {trailing && <div className="absolute right-1 flex items-center">{trailing}</div>}
     </div>
   );
 });
+
+/** Input password dengan tombol show/hide. */
+export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputProps, 'type' | 'trailing' | 'shortcut'>>(
+  function PasswordInput({ inputSize = 'md', disabled, ...props }, ref) {
+    const [visible, setVisible] = useState(false);
+    return (
+      <Input
+        ref={ref}
+        type={visible ? 'text' : 'password'}
+        inputSize={inputSize}
+        disabled={disabled}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        {...props}
+        trailing={
+          <button
+            type="button"
+            className="flex size-8 items-center justify-center rounded-md text-outline transition-colors hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-container/40 disabled:cursor-not-allowed"
+            aria-label={visible ? 'Hide password' : 'Show password'}
+            aria-pressed={visible}
+            aria-controls={props.id}
+            title={visible ? 'Hide password' : 'Show password'}
+            disabled={disabled}
+            onClick={() => setVisible((v) => !v)}
+          >
+            <Icon name={visible ? 'visibility_off' : 'visibility'} size={inputSize === 'sm' ? 16 : 18} />
+          </button>
+        }
+      />
+    );
+  },
+);
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...props }, ref) {
