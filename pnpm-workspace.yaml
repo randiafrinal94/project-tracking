@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "e2e"
+
+# esbuild (dipakai tsx & drizzle-kit) memvalidasi binary platform saat install.
+allowBuilds:
+  esbuild: true

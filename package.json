@@ -1,0 +1,25 @@
+{
+  "name": "project-tracker",
+  "private": true,
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @pt/api dev",
+    "dev:web": "pnpm --filter @pt/web dev",
+    "build:web": "pnpm --filter @pt/web build",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:generate": "pnpm --filter @pt/db generate",
+    "db:migrate": "pnpm --filter @pt/db migrate",
+    "db:seed": "pnpm --filter @pt/db seed",
+    "db:reset": "pnpm --filter @pt/db reset",
+    "db:studio": "pnpm --filter @pt/db studio",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @pt/api test",
+    "test:e2e": "pnpm build:web && pnpm --filter @pt/e2e test",
+    "test:all": "pnpm typecheck && pnpm test && pnpm test:e2e"
+  }
+}
