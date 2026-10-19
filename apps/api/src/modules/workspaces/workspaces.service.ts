@@ -64,7 +64,23 @@ export function listForUser(userId: string) {
     .orderBy(asc(workspaces.name));
 }
 
+/**
+ * Membuat workspace hanya untuk akun level owner (`users.can_create_workspace`).
+ * Role di workspace lain (admin, dll.) maupun user baru tidak cukup.
+ */
+async function assertCanCreate(userId: string) {
+  const [user] = await db
+    .select({ canCreateWorkspace: users.canCreateWorkspace })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user?.canCreateWorkspace) {
+    throw forbidden('Only owner-level accounts can create a workspace');
+  }
+}
+
 export async function create(userId: string, input: CreateWorkspaceInput) {
+  await assertCanCreate(userId);
   const slug = input.slug ?? (await uniqueSlug(slugify(input.name)));
 
   return db.transaction(async (tx) => {

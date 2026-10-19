@@ -20,7 +20,8 @@ test.describe('mobile 390px', () => {
   });
 
   test('task modal fits the screen', async ({ page }) => {
-    await login(page, USERS.member);
+    // PRJ-7 milik Bima (admin); member tidak bisa membuka task orang lain.
+    await login(page, USERS.admin);
     await openBoard(page);
     await page.getByRole('button', { name: /^PRJ-7:/ }).click();
     const dialog = page.getByRole('dialog');

@@ -274,7 +274,14 @@ export async function seedDatabase(db: Database, { quiet = false } = {}) {
 
     const userRows = await tx
       .insert(users)
-      .values(USERS.map((u) => ({ email: u.email, fullName: u.fullName, passwordHash })))
+      .values(
+        USERS.map((u) => ({
+          email: u.email,
+          fullName: u.fullName,
+          passwordHash,
+          canCreateWorkspace: u.role === 'owner',
+        })),
+      )
       .returning({ id: users.id, email: users.email });
     const userId = Object.fromEntries(
       USERS.map((u) => [u.key, userRows.find((r) => r.email === u.email)!.id]),

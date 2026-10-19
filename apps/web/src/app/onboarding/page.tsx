@@ -18,7 +18,8 @@ function CreateWorkspace() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const hasWorkspaces = state.status === 'authenticated' && state.me.workspaces.length > 0;
+  const me = state.status === 'authenticated' ? state.me : null;
+  const hasWorkspaces = !!me && me.workspaces.length > 0;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,21 +35,37 @@ function CreateWorkspace() {
     }
   };
 
+  const footer = hasWorkspaces ? (
+    <Link href="/" className="font-semibold text-primary-container hover:text-primary">
+      Back to my workspaces
+    </Link>
+  ) : (
+    <button type="button" onClick={() => void logout()} className="hover:text-on-surface">
+      Sign out
+    </button>
+  );
+
+  if (!me?.user.canCreateWorkspace) {
+    return (
+      <AuthCard
+        title="Can't create a workspace"
+        subtitle={
+          hasWorkspaces
+            ? 'Only owner-level accounts can create new workspaces.'
+            : "You haven't joined a workspace yet. Ask an owner to add you to one."
+        }
+        footer={footer}
+      >
+        {null}
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard
       title="Create a workspace"
       subtitle="Workspaces hold your team's projects, members and boards. You'll be its owner."
-      footer={
-        hasWorkspaces ? (
-          <Link href="/" className="font-semibold text-primary-container hover:text-primary">
-            Back to my workspaces
-          </Link>
-        ) : (
-          <button type="button" onClick={() => void logout()} className="hover:text-on-surface">
-            Sign out
-          </button>
-        )
-      }
+      footer={footer}
     >
       <form onSubmit={submit} className="flex flex-col gap-space-md" noValidate>
         <Field id={`${id}-name`} label="Workspace name" error={error ?? undefined} hint="e.g. your team or company name.">

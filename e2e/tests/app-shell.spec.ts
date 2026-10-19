@@ -16,6 +16,23 @@ test('invalid credentials show an inline error', async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: 'Invalid email or password' })).toBeVisible();
 });
 
+test('new accounts wait on the login page until added to a workspace', async ({ page }) => {
+  const email = `pending${Date.now()}@example.test`;
+  await page.goto('/login');
+  await page.getByRole('button', { name: 'Create one' }).click();
+  await page.getByLabel('Full name').fill('Pending User');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('Secret123');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByText('Registration successful')).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.getByLabel('Password').fill('Secret123');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByText('No workspace assigned')).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test('dashboard shows KPIs, projects, milestones and activity', async ({ page }) => {
   const errors = trackErrors(page);
   await login(page, USERS.admin);

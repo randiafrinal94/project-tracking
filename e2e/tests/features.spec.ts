@@ -193,20 +193,21 @@ test.describe('collaboration', () => {
     const bell = citra.getByRole('button', { name: /^Notifications/ });
     const before = (await bell.getAttribute('aria-label')) ?? '';
 
-    // Orang lain (Alya) me-mention Citra & Dimas memindahkan kartu — lewat API, tanpa reload di sisi Citra.
+    // Orang lain (Alya) me-mention Citra & memindahkan kartu Citra — lewat API, tanpa reload di sisi Citra.
+    // Member hanya melihat task yang di-assign kepadanya (PRJ-8 & PRJ-13 milik Citra).
     const alya = await apiAs(USERS.owner);
     const tasks = (await alya.call('GET', `/projects/${prj.id}/tasks?limit=50`)).items;
-    const prj7 = tasks.find((t: any) => t.key === 'PRJ-7');
-    const prj12 = tasks.find((t: any) => t.key === 'PRJ-12');
-    await alya.call('POST', `/tasks/${prj7.id}/comments`, { body: 'Realtime check @citra' });
-    await alya.call('PATCH', `/tasks/${prj12.id}/move`, { status: 'done' });
+    const prj8 = tasks.find((t: any) => t.key === 'PRJ-8');
+    const prj13 = tasks.find((t: any) => t.key === 'PRJ-13');
+    await alya.call('POST', `/tasks/${prj8.id}/comments`, { body: 'Realtime check @citra' });
+    await alya.call('PATCH', `/tasks/${prj13.id}/move`, { status: 'done' });
 
     await expect(bell).not.toHaveAttribute('aria-label', before, { timeout: 10_000 });
-    await expect.poll(() => cardKeys(citra, 'Done'), { timeout: 10_000 }).toContain('PRJ-12');
+    await expect.poll(() => cardKeys(citra, 'Done'), { timeout: 10_000 }).toContain('PRJ-13');
 
     await bell.click();
-    await citra.getByRole('button', { name: /mentioned you in PRJ-7/ }).first().click();
-    await expect(citra.getByRole('dialog').getByRole('heading', { name: /Implement OAuth2/ })).toBeVisible();
+    await citra.getByRole('button', { name: /mentioned you in PRJ-8/ }).first().click();
+    await expect(citra.getByRole('dialog').getByRole('heading', { name: /Task detail slide-out drawer/ })).toBeVisible();
     await alya.ctx.dispose();
   });
 });

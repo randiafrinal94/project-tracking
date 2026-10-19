@@ -71,6 +71,8 @@ interface BoardColumnProps {
   loadingMore: boolean;
   onLoadMore: () => void;
   canEdit: boolean;
+  /** Membuat task baru (quick add) hanya untuk admin+. */
+  canCreate: boolean;
   filtered: boolean;
   onOpenTask: (id: string) => void;
   onPrefetchTask?: (id: string) => void;
@@ -89,6 +91,7 @@ export function BoardColumn({
   loadingMore,
   onLoadMore,
   canEdit,
+  canCreate,
   filtered,
   onOpenTask,
   onPrefetchTask,
@@ -132,7 +135,7 @@ export function BoardColumn({
         </div>
         <div className="flex items-center gap-1 text-on-surface-variant">
           {estimate > 0 && <span className="tabular font-mono text-[11px] text-outline">{Math.round(estimate * 10) / 10}h</span>}
-          {canEdit && (
+          {canCreate && (
             <Dropdown>
               <DropdownTrigger asChild>
                 <button
@@ -153,7 +156,7 @@ export function BoardColumn({
         </div>
       </div>
 
-      {canEdit && (status === 'backlog' || adding) && (
+      {canCreate && (status === 'backlog' || adding) && (
         adding ? (
           <form onSubmit={submit} className="mb-space-md rounded-lg bg-surface-container-lowest p-2 shadow-xs">
             <input

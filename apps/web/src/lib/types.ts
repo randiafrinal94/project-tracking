@@ -95,6 +95,8 @@ export interface User {
   email: string;
   fullName: string;
   avatarUrl: string | null;
+  /** Akun level owner: boleh membuat workspace baru. */
+  canCreateWorkspace: boolean;
   createdAt: string;
   updatedAt: string;
 }

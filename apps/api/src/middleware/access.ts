@@ -20,6 +20,13 @@ const ROLE_RANK: Record<MemberRole, number> = { viewer: 1, member: 2, admin: 3, 
 
 export const hasRole = (role: MemberRole, min: MemberRole) => ROLE_RANK[role] >= ROLE_RANK[min];
 
+/**
+ * Role `member` hanya boleh melihat & mengubah task yang di-assign kepadanya
+ * (beserta subtask, komentar, lampiran, dan aktivitasnya). Admin/owner melihat
+ * semua; viewer tetap read-only atas seluruh task.
+ */
+export const isAssigneeScoped = (role: MemberRole) => role === 'member';
+
 async function fetchMembership(workspaceId: string, userId: string): Promise<Membership | undefined> {
   const [membership] = await db
     .select({ workspaceId: workspaceMembers.workspaceId, role: workspaceMembers.role })
@@ -101,7 +108,12 @@ const loaders: Record<
 > = {
   task: async (id, { includeDeleted }) => {
     const [row] = await db
-      .select({ workspaceId: projects.workspaceId, projectId: tasks.projectId, taskId: tasks.id })
+      .select({
+        workspaceId: projects.workspaceId,
+        projectId: tasks.projectId,
+        taskId: tasks.id,
+        assigneeId: tasks.assigneeId,
+      })
       .from(tasks)
       .innerJoin(projects, eq(projects.id, tasks.projectId))
       .where(
@@ -116,7 +128,12 @@ const loaders: Record<
   },
   subtask: async (id) => {
     const [row] = await db
-      .select({ workspaceId: projects.workspaceId, projectId: tasks.projectId, taskId: tasks.id })
+      .select({
+        workspaceId: projects.workspaceId,
+        projectId: tasks.projectId,
+        taskId: tasks.id,
+        assigneeId: tasks.assigneeId,
+      })
       .from(subtasks)
       .innerJoin(tasks, eq(tasks.id, subtasks.taskId))
       .innerJoin(projects, eq(projects.id, tasks.projectId))
@@ -130,6 +147,7 @@ const loaders: Record<
         workspaceId: projects.workspaceId,
         projectId: tasks.projectId,
         taskId: tasks.id,
+        assigneeId: tasks.assigneeId,
         ownerId: comments.authorId,
       })
       .from(comments)
@@ -162,6 +180,7 @@ const loaders: Record<
         workspaceId: projects.workspaceId,
         projectId: tasks.projectId,
         taskId: tasks.id,
+        assigneeId: tasks.assigneeId,
         ownerId: attachments.uploadedBy,
       })
       .from(attachments)
@@ -176,6 +195,7 @@ const loaders: Record<
 /**
  * Memuat resource dari route param `:<resource>Id`, menurunkan workspace pemiliknya,
  * lalu memeriksa role user. Hasil disimpan di `c.var.scope` dan `c.var.membership`.
+ * Untuk resource milik task, member yang bukan assignee mendapat 404 (lihat `isAssigneeScoped`).
  */
 export const requireScopedRole = (
   resource: ScopedResource,
@@ -193,6 +213,9 @@ export const requireScopedRole = (
     const membership = await fetchMembership(scope.workspaceId, c.var.user.id);
     if (!membership) throw notFound(label);
     if (!hasRole(membership.role, min)) throw forbidden();
+    if (scope.taskId && isAssigneeScoped(membership.role) && scope.assigneeId !== c.var.user.id) {
+      throw notFound(label);
+    }
 
     c.set('scope', { ...scope, resourceId: id });
     c.set('membership', membership);

@@ -1,12 +1,17 @@
-import { activityLogs, projects, users } from '@pt/db';
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
-import { Hono } from 'hono';
+import { activityLogs, projects, tasks, users } from '@pt/db';
+import { and, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { db } from '../../db.js';
 import { decodeCursor, encodeCursor, paginationQuery, toPage } from '../../lib/pagination.js';
 import { ok } from '../../lib/response.js';
 import { validate } from '../../lib/validate.js';
-import { requireProjectRole, requireScopedRole, requireWorkspaceRole } from '../../middleware/access.js';
+import {
+  isAssigneeScoped,
+  requireProjectRole,
+  requireScopedRole,
+  requireWorkspaceRole,
+} from '../../middleware/access.js';
 import type { AppEnv } from '../../types.js';
 
 const querySchema = z.object(paginationQuery(30, 100));
@@ -57,6 +62,15 @@ async function feed(where: SQL, cursor: string | undefined, limit: number) {
   };
 }
 
+/** Member hanya melihat aktivitas non-task dan aktivitas task yang di-assign kepadanya. */
+const visibleActivity = (c: Context<AppEnv>) =>
+  isAssigneeScoped(c.var.membership.role)
+    ? or(
+        isNull(activityLogs.taskId),
+        inArray(activityLogs.taskId, db.select({ id: tasks.id }).from(tasks).where(eq(tasks.assigneeId, c.var.user.id))),
+      )
+    : undefined;
+
 /** Dipasang di `/api/v1/workspaces/:workspaceId/activity`. */
 export const workspaceActivityRoutes = new Hono<AppEnv>().get(
   '/',
@@ -64,7 +78,7 @@ export const workspaceActivityRoutes = new Hono<AppEnv>().get(
   validate('query', querySchema),
   async (c) => {
     const { cursor, limit } = c.req.valid('query');
-    return ok(c, await feed(eq(activityLogs.workspaceId, c.var.membership.workspaceId), cursor, limit));
+    return ok(c, await feed(and(eq(activityLogs.workspaceId, c.var.membership.workspaceId), visibleActivity(c))!, cursor, limit));
   },
 );
 
@@ -75,7 +89,7 @@ export const projectActivityRoutes = new Hono<AppEnv>().get(
   validate('query', querySchema),
   async (c) => {
     const { cursor, limit } = c.req.valid('query');
-    return ok(c, await feed(eq(activityLogs.projectId, c.var.project.id), cursor, limit));
+    return ok(c, await feed(and(eq(activityLogs.projectId, c.var.project.id), visibleActivity(c))!, cursor, limit));
   },
 );
 

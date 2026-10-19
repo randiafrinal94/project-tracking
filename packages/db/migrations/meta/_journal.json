@@ -64,6 +64,13 @@
       "when": 1792135488040,
       "tag": "0008_realtime_notify",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792393006676,
+      "tag": "0009_owner_can_create_workspace",
+      "breakpoints": true
     }
   ]
 }

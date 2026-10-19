@@ -351,7 +351,7 @@ function ProjectPageInner() {
                     {canEdit ? 'Drag cards to update state' : (<><Icon name="visibility" size={16} /> View only</>)}
                   </span>
                 </div>
-                <KanbanBoard project={p} filters={filters} canEdit={canEdit} onOpenTask={openTask} />
+                <KanbanBoard project={p} filters={filters} canEdit={canEdit} canCreate={workspace.can('admin')} onOpenTask={openTask} />
               </section>
               <aside className="grid grid-cols-1 gap-gutter md:grid-cols-2 @min-[84rem]:grid-cols-1">{rail}</aside>
             </div>

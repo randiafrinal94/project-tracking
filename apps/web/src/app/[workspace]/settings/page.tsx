@@ -18,7 +18,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { api, ApiError, setAccessToken } from '@/lib/api';
 import { qk } from '@/lib/query-keys';
 import type { MemberRole, Me, Session, Tag, Workspace, WorkspaceMember } from '@/lib/types';
-import { useAuth, useMe } from '@/providers/auth-provider';
+import { NoWorkspaceError, useAuth, useMe } from '@/providers/auth-provider';
 import { useToast } from '@/providers/toast-provider';
 
 type Tab = 'general' | 'members' | 'tags' | 'profile';
@@ -29,6 +29,13 @@ const errorMap = (e: unknown) => {
   if (e instanceof ApiError && Array.isArray(e.details)) for (const d of e.details as { path: string; message: string }[]) out[d.path] ??= d.message;
   return out;
 };
+
+/** Setelah keluar dari workspace terakhir sesi ditutup (AuthGate → /login); kembalikan null agar tidak redirect. */
+const reloadMeOrSignedOut = (reloadMe: () => Promise<Me>) =>
+  reloadMe().catch((e: unknown) => {
+    if (e instanceof NoWorkspaceError) return null;
+    throw e;
+  });
 
 // ---------------------------------------------------------------------------
 
@@ -71,8 +78,8 @@ function GeneralTab() {
   const remove = useMutation({
     mutationFn: () => api(`/workspaces/${workspace.id}`, { method: 'DELETE' }),
     onSuccess: async () => {
-      const me = await reloadMe();
-      router.replace(me.workspaces[0] ? `/${me.workspaces[0].slug}` : '/onboarding');
+      const me = await reloadMeOrSignedOut(reloadMe);
+      if (me) router.replace(me.workspaces[0] ? `/${me.workspaces[0].slug}` : '/onboarding');
     },
     onError: (e) => toast({ tone: 'error', title: 'Could not delete workspace', description: (e as Error).message }),
   });
@@ -166,8 +173,8 @@ function MembersTab() {
     mutationFn: (userId: string) => api(`/workspaces/${workspace.id}/members/${userId}`, { method: 'DELETE' }),
     onSuccess: async (_r, userId) => {
       if (userId === user.id) {
-        const me = await reloadMe();
-        router.replace(me.workspaces[0] ? `/${me.workspaces[0].slug}` : '/onboarding');
+        const me = await reloadMeOrSignedOut(reloadMe);
+        if (me) router.replace(me.workspaces[0] ? `/${me.workspaces[0].slug}` : '/onboarding');
         return;
       }
       refresh();

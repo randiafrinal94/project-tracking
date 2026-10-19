@@ -9,7 +9,7 @@ import { useMe } from '@/providers/auth-provider';
 
 /** Tombol workspace di atas nav (Stitch: "A  Acme Corp Labs  ⇕"). */
 export function WorkspaceSwitcher({ current, compact }: { current: WorkspaceRef; compact?: boolean }) {
-  const { workspaces } = useMe();
+  const { user, workspaces } = useMe();
 
   return (
     <Dropdown>
@@ -45,10 +45,14 @@ export function WorkspaceSwitcher({ current, compact }: { current: WorkspaceRef;
             </Link>
           </DropdownItem>
         ))}
-        <DropdownSeparator />
-        <DropdownItem asChild icon="add">
-          <Link href="/onboarding">Create workspace</Link>
-        </DropdownItem>
+        {user.canCreateWorkspace && (
+          <>
+            <DropdownSeparator />
+            <DropdownItem asChild icon="add">
+              <Link href="/onboarding">Create workspace</Link>
+            </DropdownItem>
+          </>
+        )}
       </DropdownContent>
     </Dropdown>
   );

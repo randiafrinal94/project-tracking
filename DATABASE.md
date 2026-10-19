@@ -56,6 +56,7 @@ projects ───────────────────────�
 | `password_hash` | `TEXT` | NOT NULL | Hash Argon2id |
 | `full_name` | `VARCHAR(150)` | NOT NULL | Nama tampilan |
 | `avatar_url` | `TEXT` | Nullable | URL avatar |
+| `can_create_workspace` | `BOOLEAN` | NOT NULL, DEFAULT `false` | Akun level owner; hanya akun ini yang boleh membuat workspace |
 
 ### `refresh_tokens`
 | Kolom | Tipe Data | Constraint | Keterangan |

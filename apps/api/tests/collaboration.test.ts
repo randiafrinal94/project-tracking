@@ -8,7 +8,7 @@ let task: { id: string; key: string };
 beforeAll(async () => {
   ctx = await seedContext();
   project = (await call('POST', `/workspaces/${ctx.ws.id}/projects`, { token: ctx.admin.token, body: { name: 'Collab', keyPrefix: 'COL', status: 'active' } })).json.data;
-  task = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.member.token, body: { title: 'Collab task' } })).json.data;
+  task = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.admin.token, body: { title: 'Collab task', assigneeId: ctx.uid.citra } })).json.data;
 });
 
 describe('tags', () => {
@@ -64,7 +64,7 @@ describe('comments', () => {
     const edited = await call('PATCH', `/comments/${c.id}`, { token: ctx.member.token, body: { body: 'Edited _text_' } });
     expect(edited.json.data.bodyHtml).toBe('<p>Edited <em>text</em></p>');
 
-    const other = (await call('POST', `/tasks/${task.id}/comments`, { token: ctx.member2.token, body: { body: 'second' } })).json.data;
+    const other = (await call('POST', `/tasks/${task.id}/comments`, { token: ctx.owner.token, body: { body: 'second' } })).json.data;
     expect((await call('DELETE', `/comments/${other.id}`, { token: ctx.member.token })).status).toBe(403);
     expect((await call('DELETE', `/comments/${other.id}`, { token: ctx.admin.token })).status).toBe(200);
     const listed = (await call('GET', `/tasks/${task.id}/comments`, { token: ctx.viewer.token })).json.data.items;
@@ -76,7 +76,7 @@ describe('milestones', () => {
   it('tracks progress and detaches tasks on delete', async () => {
     const m = (await call('POST', `/projects/${project.id}/milestones`, { token: ctx.admin.token, body: { name: 'Beta', dueDate: '2026-12-31' } })).json.data;
     expect((await call('POST', `/projects/${project.id}/milestones`, { token: ctx.member.token, body: { name: 'x' } })).status).toBe(403);
-    const t2 = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.member.token, body: { title: 'Second', milestoneId: m.id } })).json.data;
+    const t2 = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.admin.token, body: { title: 'Second', milestoneId: m.id, assigneeId: ctx.uid.citra } })).json.data;
     await call('PATCH', `/tasks/${task.id}`, { token: ctx.member.token, body: { milestoneId: m.id } });
     await call('PATCH', `/tasks/${t2.id}/move`, { token: ctx.member.token, body: { status: 'done' } });
     const progress = (await call('GET', `/projects/${project.id}/milestones`, { token: ctx.viewer.token })).json.data[0].progress;
@@ -95,12 +95,13 @@ describe('activity log (DB triggers)', () => {
     for (const a of ['task.created', 'task.tag_added', 'task.tag_removed', 'subtask.created', 'subtask.completed', 'subtask.deleted', 'comment.created', 'comment.edited', 'task.updated']) {
       expect(actions, a).toContain(a);
     }
-    expect(feed.find((a: any) => a.action === 'task.created')).toMatchObject({ actor: { fullName: 'Citra Lestari' }, metadata: { key: task.key } });
+    expect(feed.find((a: any) => a.action === 'task.created')).toMatchObject({ actor: { fullName: 'Bima Santoso' }, metadata: { key: task.key } });
+    expect(feed.find((a: any) => a.action === 'subtask.created')).toMatchObject({ actor: { fullName: 'Citra Lestari' } });
   });
 
   it('logs moves but not pure reorders', async () => {
-    const a = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.member.token, body: { title: 'Mover' } })).json.data;
-    const b = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.member.token, body: { title: 'Other' } })).json.data;
+    const a = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.admin.token, body: { title: 'Mover', assigneeId: ctx.uid.citra } })).json.data;
+    const b = (await call('POST', `/projects/${project.id}/tasks`, { token: ctx.admin.token, body: { title: 'Other' } })).json.data;
     await call('PATCH', `/tasks/${a.id}/move`, { token: ctx.member.token, body: { status: 'backlog', prevTaskId: b.id } });
     await call('PATCH', `/tasks/${a.id}/move`, { token: ctx.member.token, body: { status: 'in_progress' } });
     const moves = (await call('GET', `/tasks/${a.id}/activity`, { token: ctx.viewer.token })).json.data.items.filter((x: any) => x.action === 'task.moved');

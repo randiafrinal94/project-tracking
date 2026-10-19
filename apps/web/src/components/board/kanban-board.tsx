@@ -82,11 +82,13 @@ export function KanbanBoard({
   project,
   filters,
   canEdit,
+  canCreate,
   onOpenTask,
 }: {
   project: Project;
   filters: TaskFilters;
   canEdit: boolean;
+  canCreate: boolean;
   onOpenTask: (taskId: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -349,6 +351,7 @@ export function KanbanBoard({
               loadingMore={q.isFetchingNextPage}
               onLoadMore={() => q.fetchNextPage()}
               canEdit={canEdit}
+              canCreate={canCreate}
               filtered={filtered}
               onOpenTask={onOpenTask}
               onPrefetchTask={prefetchTask}

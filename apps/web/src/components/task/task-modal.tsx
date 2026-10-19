@@ -169,7 +169,7 @@ export function TaskModal({
                       <Button variant="ghost" size="sm" icon="share" className="text-label-sm" onClick={copyLink}>
                         <span className="hidden sm:inline">Share</span>
                       </Button>
-                      {canEdit && (
+                      {isAdmin && (
                         <Dropdown>
                           <DropdownTrigger asChild>
                             <IconButton icon="more_horiz" label="More options" size="sm" />
@@ -336,6 +336,7 @@ export function TaskModal({
                   <MetaRail
                     task={t}
                     editable={canEdit}
+                    canAssign={isAdmin}
                     members={members.data ?? []}
                     milestones={milestones.data ?? []}
                     tags={tags.data ?? []}

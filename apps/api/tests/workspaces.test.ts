@@ -2,14 +2,14 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { call, seedContext, type SeedContext } from './helpers.js';
 
 let ctx: SeedContext;
-let outsider: { token: string; id: string; email: string };
+let outsider: { token: string; id: string; email: string; canCreateWorkspace: boolean };
 
 beforeAll(async () => {
   ctx = await seedContext();
   const r = await call('POST', '/auth/register', {
     body: { email: `outsider.${Date.now()}@x.test`, password: 'Secret123', fullName: 'Out Sider' },
   });
-  outsider = { token: r.json.data.accessToken, id: r.json.data.user.id, email: r.json.data.user.email };
+  outsider = { token: r.json.data.accessToken, ...r.json.data.user };
 });
 
 describe('workspaces', () => {
@@ -29,12 +29,24 @@ describe('workspaces', () => {
   });
 
   it('auto-generates a unique slug', async () => {
-    const r = await call('POST', '/workspaces', { token: outsider.token, body: { name: 'Acme Corp' } });
+    const r = await call('POST', '/workspaces', { token: ctx.owner.token, body: { name: 'Acme Corp' } });
     expect(r.status).toBe(201);
     expect(r.json.data.slug).toMatch(/^acme-corp-[0-9a-f]{4}$/);
-    const taken = await call('POST', '/workspaces', { token: outsider.token, body: { name: 'X', slug: 'acme-corp' } });
+    const taken = await call('POST', '/workspaces', { token: ctx.owner.token, body: { name: 'X', slug: 'acme-corp' } });
     expect(taken.json.error.code).toBe('SLUG_TAKEN');
-    expect((await call('DELETE', `/workspaces/${r.json.data.id}`, { token: outsider.token })).status).toBe(200);
+    expect((await call('DELETE', `/workspaces/${r.json.data.id}`, { token: ctx.owner.token })).status).toBe(200);
+  });
+
+  it('lets only owner-level accounts create workspaces', async () => {
+    expect(ctx.owner.user.canCreateWorkspace).toBe(true);
+    expect(outsider.canCreateWorkspace).toBe(false);
+    for (const token of [ctx.admin.token, ctx.member.token, ctx.viewer.token, outsider.token]) {
+      const r = await call('POST', '/workspaces', { token, body: { name: 'Side project' } });
+      expect(r.status).toBe(403);
+    }
+    const r = await call('POST', '/workspaces', { token: ctx.owner.token, body: { name: 'Side project' } });
+    expect(r.status).toBe(201);
+    expect((await call('DELETE', `/workspaces/${r.json.data.id}`, { token: ctx.owner.token })).status).toBe(200);
   });
 
   it('enforces roles for update/delete', async () => {

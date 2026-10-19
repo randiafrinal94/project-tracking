@@ -10,10 +10,30 @@ import { Icon } from '@/components/ui/icon';
 import { Field, Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api';
 import type { Me } from '@/lib/types';
-import { useAuth } from '@/providers/auth-provider';
+import { NoWorkspaceError, useAuth } from '@/providers/auth-provider';
 
 /** Hanya izinkan redirect internal (mencegah open redirect lewat ?next=). */
 const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null);
+
+interface Notice {
+  icon: string;
+  title: string;
+  message: string;
+}
+
+const REGISTERED_NOTICE: Notice = {
+  icon: 'check_circle',
+  title: 'Registration successful',
+  message:
+    'Your account has been created. You will be able to sign in once a workspace owner has added you to a workspace.',
+};
+
+const NO_WORKSPACE_NOTICE: Notice = {
+  icon: 'info',
+  title: 'No workspace assigned',
+  message:
+    'Your account has not been assigned to any workspace yet. Please contact your workspace owner or administrator to request access.',
+};
 
 const landingFor = (me: Me, next: string | null) =>
   safeNext(next) ?? (me.workspaces[0] ? `/${me.workspaces[0].slug}` : '/onboarding');
@@ -28,6 +48,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
 
@@ -37,16 +58,31 @@ function LoginForm() {
 
   if (state.status !== 'unauthenticated') return <FullScreenLoader />;
 
+  // Sesi ditolak di luar form (mis. memulihkan sesi / keluar dari workspace terakhir).
+  const shownNotice = notice ?? (state.noWorkspace && !error ? NO_WORKSPACE_NOTICE : null);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setFieldErrors({});
     setPending(true);
     try {
-      const me = mode === 'login' ? await login(email, password) : await register({ email, password, fullName });
+      if (mode === 'register') {
+        await register({ email, password, fullName });
+        setMode('login');
+        setFullName('');
+        setPassword('');
+        setNotice(REGISTERED_NOTICE);
+        return;
+      }
+      const me = await login(email, password);
       router.replace(landingFor(me, params.get('next')));
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
+      if (err instanceof NoWorkspaceError) {
+        setPassword('');
+        setNotice(NO_WORKSPACE_NOTICE);
+      } else if (err instanceof ApiError && err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
         const next: Record<string, string> = {};
         for (const d of err.details as { path: string; message: string }[]) next[d.path] ??= d.message;
         setFieldErrors(next);
@@ -73,6 +109,7 @@ function LoginForm() {
             onClick={() => {
               setMode(isLogin ? 'register' : 'login');
               setError(null);
+              setNotice(null);
               setFieldErrors({});
             }}
           >
@@ -82,6 +119,15 @@ function LoginForm() {
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-space-md" noValidate>
+        {shownNotice && (
+          <div role="status" className="flex items-start gap-2 rounded-lg bg-primary-fixed/50 p-space-sm text-body-sm text-on-primary-fixed-variant">
+            <Icon name={shownNotice.icon} size={18} className="mt-px" />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold">{shownNotice.title}</span>
+              <span>{shownNotice.message}</span>
+            </div>
+          </div>
+        )}
         {error && (
           <div role="alert" className="flex items-start gap-2 rounded-lg bg-error-container p-space-sm text-body-sm text-on-error-container">
             <Icon name="error" size={18} className="mt-px" />

@@ -33,6 +33,7 @@ function dueBadge(task: TaskDetail) {
 export function MetaRail({
   task,
   editable,
+  canAssign,
   members,
   milestones,
   tags,
@@ -42,6 +43,8 @@ export function MetaRail({
 }: {
   task: TaskDetail;
   editable: boolean;
+  /** Mengubah assignee hanya untuk admin+ (member hanya mengerjakan task miliknya). */
+  canAssign: boolean;
   members: WorkspaceMember[];
   milestones: Milestone[];
   tags: Tag[];
@@ -99,7 +102,7 @@ export function MetaRail({
                   <span className="text-[11px] text-outline capitalize">{assigneeMember?.role ?? 'Member'}</span>
                 </div>
               </div>
-              {editable && (
+              {canAssign && (
                 <button
                   type="button"
                   aria-label="Remove assignee"
@@ -113,7 +116,7 @@ export function MetaRail({
           ) : (
             <p className="text-body-sm text-on-surface-variant">Unassigned</p>
           )}
-          {editable && (
+          {canAssign && (
             <Dropdown>
               <DropdownTrigger asChild>
                 <button

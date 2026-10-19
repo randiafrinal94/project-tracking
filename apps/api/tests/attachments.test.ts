@@ -23,6 +23,8 @@ const download = (id: string, token: string, qs = '') =>
 beforeAll(async () => {
   ctx = await seedContext();
   taskId = (await call('GET', `/projects/${ctx.prj.id}/tasks?q=PRJ-7`, { token: ctx.viewer.token })).json.data.items[0].id;
+  // Member hanya bisa bekerja di task yang di-assign kepadanya.
+  await call('PATCH', `/tasks/${taskId}`, { token: ctx.admin.token, body: { assigneeId: ctx.uid.citra } });
 });
 
 describe('attachments (local disk)', () => {
@@ -90,9 +92,16 @@ describe('attachments (local disk)', () => {
     const feed = (await call('GET', `/tasks/${taskId}/activity`, { token: ctx.viewer.token })).json.data.items;
     expect(feed.some((a: any) => a.action === 'attachment.added' && a.metadata.fileName === 'pixel.png')).toBe(true);
 
-    expect((await call('DELETE', `/attachments/${pngId}`, { token: ctx.member2.token })).status).toBe(403);
+    const byAdmin = (await call('POST', `/tasks/${taskId}/attachments`, {
+      token: ctx.admin.token,
+      form: form(new File(['x'], 'admin.txt', { type: 'text/plain' })),
+    })).json.data[0];
+    expect((await call('DELETE', `/attachments/${byAdmin.id}`, { token: ctx.member.token })).status).toBe(403);
+    // Member lain bukan assignee task → lampirannya tidak terlihat sama sekali.
+    expect((await call('DELETE', `/attachments/${pngId}`, { token: ctx.member2.token })).status).toBe(404);
     expect((await call('DELETE', `/attachments/${pngId}`, { token: ctx.member.token })).status).toBe(200);
     expect((await call('DELETE', `/attachments/${htmlId}`, { token: ctx.admin.token })).status).toBe(200);
+    expect((await call('DELETE', `/attachments/${byAdmin.id}`, { token: ctx.admin.token })).status).toBe(200);
     expect(await readdir(`${storageDir}/${taskId}`)).toHaveLength(0);
     expect((await download(pngId, ctx.viewer.token)).status).toBe(404);
   });

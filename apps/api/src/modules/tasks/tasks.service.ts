@@ -98,6 +98,9 @@ type CardRow = Awaited<ReturnType<typeof selectCards>>[number];
 
 export type TaskScope = { workspaceId: string; projectId: string; taskId: string };
 
+/** `assignedOnly` → hanya task yang assignee-nya `userId` (role member). */
+export type ListViewer = { userId: string; assignedOnly: boolean };
+
 function toCard(row: CardRow) {
   const { assigneeId, assigneeName, assigneeAvatarUrl, subtaskTotal, subtaskCompleted, ...rest } = row;
   return {
@@ -122,10 +125,12 @@ const STATUS_ORDER: TaskStatus[] = ['backlog', 'in_progress', 'in_review', 'done
  */
 export async function list(
   scope: { projectId: string } | { workspaceId: string },
-  userId: string,
+  viewer: ListViewer,
   query: ListTasksQuery,
 ) {
+  const { userId } = viewer;
   const filters: (SQL | undefined)[] = [isNull(tasks.deletedAt)];
+  if (viewer.assignedOnly) filters.push(eq(tasks.assigneeId, userId));
   if ('projectId' in scope) {
     filters.push(eq(tasks.projectId, scope.projectId));
   } else {

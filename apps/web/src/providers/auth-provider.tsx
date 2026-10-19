@@ -11,12 +11,14 @@ type AuthState =
   | { status: 'loading'; me: null }
   | { status: 'authenticated'; me: Me }
   /** `signedOut`: logout eksplisit — jangan simpan ?next (user berikutnya bisa berbeda). */
-  | { status: 'unauthenticated'; me: null; signedOut?: boolean };
+  /** `noWorkspace`: sesi ditolak karena akun belum tergabung ke workspace — tampilkan pemberitahuan di /login. */
+  | { status: 'unauthenticated'; me: null; signedOut?: boolean; noWorkspace?: boolean };
 
 interface AuthContextValue {
   state: AuthState;
   login: (email: string, password: string) => Promise<Me>;
-  register: (input: { email: string; password: string; fullName: string }) => Promise<Me>;
+  /** Membuat akun tanpa membuka sesi — user baru menunggu ditambahkan ke workspace. */
+  register: (input: { email: string; password: string; fullName: string }) => Promise<void>;
   logout: () => Promise<void>;
   /** Muat ulang profil + daftar workspace (mis. setelah membuat workspace). */
   reloadMe: () => Promise<Me>;
@@ -24,26 +26,45 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Login berhasil, tetapi akun belum tergabung ke workspace mana pun (dan tidak bisa membuatnya). */
+export class NoWorkspaceError extends Error {
+  constructor() {
+    super('This account has not been assigned to any workspace yet.');
+    this.name = 'NoWorkspaceError';
+  }
+}
+
+/** Akun tanpa workspace hanya boleh masuk bila ia berhak membuat workspace sendiri (owner). */
+const hasAccess = (me: Me) => me.workspaces.length > 0 || me.user.canCreateWorkspace;
+
+/** Cabut refresh token di server (cookie httpOnly) tanpa membuka sesi di client. */
+const revokeSession = () => api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading', me: null });
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const loadMe = useCallback(async () => {
-    const me = await api<Me>('/auth/me');
-    queryClient.setQueryData(qk.me, me);
-    setState({ status: 'authenticated', me });
-    return me;
-  }, [queryClient]);
-
   const signOutLocally = useCallback(
-    (signedOut = false) => {
+    (signedOut = false, noWorkspace = false) => {
       setAccessToken(null);
       queryClient.clear();
-      setState({ status: 'unauthenticated', me: null, signedOut });
+      setState({ status: 'unauthenticated', me: null, signedOut, noWorkspace });
     },
     [queryClient],
   );
+
+  const loadMe = useCallback(async () => {
+    const me = await api<Me>('/auth/me');
+    if (!hasAccess(me)) {
+      await revokeSession();
+      signOutLocally(true, true);
+      throw new NoWorkspaceError();
+    }
+    queryClient.setQueryData(qk.me, me);
+    setState({ status: 'authenticated', me });
+    return me;
+  }, [queryClient, signOutLocally]);
 
   // Bootstrap: pulihkan sesi dari cookie refresh saat halaman dimuat.
   useEffect(() => {
@@ -53,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session) return setState({ status: 'unauthenticated', me: null });
       try {
         await loadMe();
-      } catch {
-        if (!cancelled) setState({ status: 'unauthenticated', me: null });
+      } catch (err) {
+        if (!cancelled && !(err instanceof NoWorkspaceError)) setState({ status: 'unauthenticated', me: null });
       }
     });
     return () => {
@@ -84,10 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       state,
       login: async (email, password) =>
         startSession(await api<Session>('/auth/login', { method: 'POST', body: { email, password } })),
-      register: async (input) =>
-        startSession(await api<Session>('/auth/register', { method: 'POST', body: input })),
+      register: async (input) => {
+        // API tetap menerbitkan sesi saat register; langsung dicabut agar user tidak masuk aplikasi.
+        await api<Session>('/auth/register', { method: 'POST', body: input });
+        await revokeSession();
+      },
       logout: async () => {
-        await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+        await revokeSession();
         signOutLocally(true);
         router.replace('/login');
       },

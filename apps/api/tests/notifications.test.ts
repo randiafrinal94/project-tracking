@@ -7,9 +7,9 @@ let task: { id: string; key: string };
 
 beforeAll(async () => {
   ctx = await seedContext();
-  // Task milik Dimas (assignee) dengan reporter Citra.
+  // Task milik Dimas (assignee) dengan reporter Bima (admin).
   task = (await call('POST', `/projects/${ctx.prj.id}/tasks`, {
-    token: ctx.member.token,
+    token: ctx.admin.token,
     body: { title: 'Notify me', assigneeId: ctx.uid.dimas },
   })).json.data;
 });
@@ -23,12 +23,12 @@ describe('notifications', () => {
   it('notifies the assignee (not self-assignments)', async () => {
     const d = await inbox(ctx.member2.token);
     const n = d.items.find((x: any) => x.type === 'task.assigned' && x.taskId === task.id);
-    expect(n).toMatchObject({ actor: { fullName: 'Citra Lestari' }, metadata: { key: task.key, title: 'Notify me' }, readAt: null });
+    expect(n).toMatchObject({ actor: { fullName: 'Bima Santoso' }, metadata: { key: task.key, title: 'Notify me' }, readAt: null });
     expect(d.unreadCount).toBeGreaterThan(0);
 
-    await call('PATCH', `/tasks/${task.id}`, { token: ctx.member.token, body: { assigneeId: ctx.uid.citra } });
-    expect((await inbox(ctx.member.token)).items.some((x: any) => x.type === 'task.assigned' && x.taskId === task.id)).toBe(false);
-    await call('PATCH', `/tasks/${task.id}`, { token: ctx.member.token, body: { assigneeId: ctx.uid.dimas } });
+    await call('PATCH', `/tasks/${task.id}`, { token: ctx.admin.token, body: { assigneeId: ctx.uid.bima } });
+    expect((await inbox(ctx.admin.token)).items.some((x: any) => x.type === 'task.assigned' && x.taskId === task.id)).toBe(false);
+    await call('PATCH', `/tasks/${task.id}`, { token: ctx.admin.token, body: { assigneeId: ctx.uid.dimas } });
   });
 
   it('handles @mentions and comment notifications without duplicates', async () => {
@@ -50,9 +50,9 @@ describe('notifications', () => {
     // Dimas = assignee & di-mention → satu notifikasi mention saja.
     const dimas = (await inbox(ctx.member2.token)).items.filter((x: any) => x.metadata.commentId === c.id);
     expect(dimas.map((x: any) => x.type)).toEqual(['comment.mention']);
-    // Citra = reporter, hanya disebut di dalam code → notifikasi comment.created.
+    // Citra hanya disebut di dalam code (bukan assignee/reporter) → tidak ada notifikasi.
     const citra = (await inbox(ctx.member.token)).items.filter((x: any) => x.metadata.commentId === c.id);
-    expect(citra.map((x: any) => x.type)).toEqual(['comment.created']);
+    expect(citra).toEqual([]);
   });
 
   it('marks notifications as read and isolates users', async () => {
@@ -123,7 +123,7 @@ describe('realtime (SSE)', () => {
     const reader = res.body!.getReader();
     await readUntil(reader, 'event: ready');
 
-    await call('PATCH', `/tasks/${task.id}/move`, { token: ctx.member.token, body: { status: 'in_review' } });
+    await call('PATCH', `/tasks/${task.id}/move`, { token: ctx.admin.token, body: { status: 'in_review' } });
     const activity = await readUntil(reader, '"action":"task.moved"');
     expect(activity).toContain(`"taskId":"${task.id}"`);
 

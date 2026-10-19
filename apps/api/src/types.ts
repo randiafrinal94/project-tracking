@@ -18,6 +18,8 @@ export interface Scope {
   taskId?: string;
   /** ID resource dari route param (task/subtask/comment/milestone/tag). */
   resourceId?: string;
+  /** Assignee task pemilik resource, bila resource berada di bawah task. */
+  assigneeId?: string | null;
   /** Pembuat resource, bila relevan (mis. author komentar). */
   ownerId?: string | null;
 }
