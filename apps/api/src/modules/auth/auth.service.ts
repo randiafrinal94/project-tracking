@@ -63,12 +63,15 @@ const revokeFamily = (familyId: string) =>
 export async function register(input: RegisterInput, userAgent?: string): Promise<Session> {
   if (await findUserByEmail(input.email)) throw conflict('Email is already registered', 'EMAIL_TAKEN');
 
+  // Instalasi baru tanpa data: akun pertama otomatis menjadi akun level owner
+  // agar bisa membuat workspace pertama.
   const [user] = await db
     .insert(users)
     .values({
       email: input.email,
       fullName: input.fullName,
       passwordHash: await hashPassword(input.password),
+      canCreateWorkspace: sql<boolean>`NOT EXISTS (SELECT 1 FROM ${users})`,
     })
     .returning();
 

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useId, useState, type FormEvent } from 'react';
 import { AuthCard } from '@/components/layout/auth-card';
@@ -171,11 +170,6 @@ function LoginForm() {
           {isLogin ? 'Sign in' : 'Create account'}
         </Button>
       </form>
-      <p className="mt-space-lg text-center text-body-sm text-outline">
-        <Link href="/design-system" className="hover:text-on-surface">
-          View design system
-        </Link>
-      </p>
     </AuthCard>
   );
 }

@@ -13,15 +13,14 @@ Spesifikasi (single source of truth): [PRD.md](PRD.md) · [DESIGN.md](DESIGN.md)
 │   └── api/              # @pt/api — Hono REST API (src/modules/*: auth, workspaces, projects,
 │                         #   tasks, subtasks, comments, milestones, tags, activity, dashboard)
 ├── packages/
-│   └── db/               # @pt/db — skema Drizzle, migrasi SQL, seeder, DB client, prepare (DB test)
+│   └── db/               # @pt/db — skema Drizzle, migrasi SQL, DB client
 │       ├── migrations/   # 0000 extensions · 0001 init · 0002 triggers · 0003 refresh_tokens
 │       │                 # 0004 comments.body_html · 0005 activity & completed_at triggers
 │       │                 # 0006 attachment activity trigger · 0007 notifications · 0008 realtime pg_notify
 │       └── src/
 │           ├── schema/   # satu file per domain + relations.ts
 │           ├── client.ts # createDb() → { db, pool }
-│           ├── migrate.ts · seed.ts · reset.ts
-├── e2e/                  # @pt/e2e — Playwright (DB project_tracker_e2e)
+│           ├── migrate.ts · reset.ts · tools.ts
 ├── storage/              # lampiran disk lokal (gitignored)
 ├── docker-compose.yml    # PostgreSQL 16 (+ Adminer via profile "tools")
 └── .env.example
@@ -40,7 +39,6 @@ cp .env.example .env
 pnpm install
 pnpm db:up        # jalankan PostgreSQL 16 (tunggu healthy)
 pnpm db:migrate   # terapkan migrasi
-pnpm db:seed      # isi data contoh (menghapus data lama!)
 ```
 
 Adminer (opsional): `docker compose --profile tools up -d` lalu buka http://localhost:8080
@@ -53,8 +51,7 @@ Adminer (opsional): `docker compose --profile tools up -d` lalu buka http://loca
 | `pnpm db:up` / `db:down` | Start / stop container Postgres |
 | `pnpm db:generate` | Generate migrasi baru dari perubahan `src/schema/*` |
 | `pnpm db:migrate` | Terapkan migrasi yang belum jalan |
-| `pnpm db:seed` | Truncate semua tabel lalu isi data contoh |
-| `pnpm db:reset` | Drop schema → migrate → seed (ditolak saat `NODE_ENV=production`) |
+| `pnpm db:reset` | Drop schema → migrate, database kembali kosong (ditolak saat `NODE_ENV=production`) |
 | `pnpm db:studio` | Drizzle Studio |
 
 Migrasi berisi SQL kustom (extension, function, trigger) dibuat dengan
@@ -136,7 +133,7 @@ pnpm dev:web      # terminal 2 — web di http://localhost:3000
 - Next.js mem-proxy `/api/v1/*` ke API (`API_ORIGIN`, default `http://localhost:4000`), jadi browser
   hanya melihat satu origin dan cookie refresh bekerja tanpa CORS.
 - Access token disimpan di memori; saat 401 client otomatis memanggil `/auth/refresh` sekali.
-- Token desain Stitch ada di `src/app/globals.css`; katalog komponen di **/design-system**.
+- Token desain Stitch ada di `src/app/globals.css`.
 - Route: `/login`, `/onboarding`, `/:workspaceSlug` (dashboard), `/:workspaceSlug/projects`,
   `/:workspaceSlug/projects/:projectId` (Kanban board), `?task=<taskId>` membuka detail task.
 - Kanban: drag-and-drop `@dnd-kit` (mouse & keyboard) dengan optimistic update + rollback;
@@ -155,7 +152,7 @@ pnpm dev:web      # terminal 2 — web di http://localhost:3000
 | `PATCH /api/v1/auth/me` · `POST /api/v1/auth/password` | login | Profil & ganti password (mencabut sesi lain) |
 
 - **Notifikasi:** `task.assigned` (assignee baru ≠ aktor), `comment.mention` (`@handle` = bagian lokal email
-  anggota workspace, mis. `@citra`), `comment.created` (untuk assignee & reporter). Tanpa duplikat per komentar.
+  anggota workspace, mis. `@budi`), `comment.created` (untuk assignee & reporter). Tanpa duplikat per komentar.
 - **Realtime:** trigger PostgreSQL `pg_notify('pt_events', …)` pada `activity_logs`, reorder task, dan
   `notifications`; API memegang satu koneksi `LISTEN` dan meneruskan event ke subscriber workspace via SSE.
   Client mengubah event menjadi invalidasi cache (batch 400 ms). Single instance; untuk banyak instance
@@ -171,7 +168,7 @@ pnpm dev:web      # terminal 2 — web di http://localhost:3000
 File disimpan di `STORAGE_DIR` (default `storage/uploads`, di-gitignore) dengan key buatan server
 `<taskId>/<uuid>` — nama asli hanya di DB. Batas per file `MAX_UPLOAD_MB` (default 10 MB, maks 10 file
 per upload). Hanya png/jpeg/gif/webp yang boleh tampil inline (`?inline=1`); tipe lain (termasuk SVG)
-selalu diunduh dengan `nosniff` + CSP `default-src 'none'; sandbox`. `pnpm db:seed` ikut mengosongkan folder ini.
+selalu diunduh dengan `nosniff` + CSP `default-src 'none'; sandbox`.
 
 | Method & Path | Akses |
 | :--- | :--- |
@@ -182,30 +179,17 @@ selalu diunduh dengan `nosniff` + CSP `default-src 'none'; sandbox`. `pnpm db:se
 
 ## Testing
 
-| Perintah | Isi | Database |
-| :--- | :--- | :--- |
-| `pnpm typecheck` | TypeScript seluruh workspace | — |
-| `pnpm test` | Vitest API (unit + integrasi via `app.request`, termasuk SSE realtime — 75 test) | `project_tracker_test` |
-| `pnpm test:e2e` | Build web + Playwright (32 skenario: shell, Kanban DnD mouse/keyboard, rollback, modal, lampiran, view project, virtual scrolling 260 task, halaman workspace, settings, mention, realtime 2 browser, responsif) | `project_tracker_e2e` |
-| `pnpm test:all` | Ketiganya berurutan | — |
-
-- Database test/e2e dibuat, di-reset, dimigrasi, dan di-seed otomatis (`pnpm --filter @pt/db prepare-db`);
-  pengaman menolak me-reset database yang namanya tidak berakhiran `_test`/`_e2e`. Data development tidak tersentuh.
-- E2E menyalakan API (:4000) dan web (:3000) sendiri → **matikan `dev:api`/`dev:web` dulu**.
-- Browser: Edge terpasang dipakai otomatis di Windows; di Linux/CI jalankan `pnpm --filter @pt/e2e exec playwright install chromium`
-  (atau set `PW_CHANNEL`). Laporan HTML: `pnpm --filter @pt/e2e report`.
-
-## Akun Seed (development)
-
-Semua password: nilai `SEED_USER_PASSWORD` (default `Password123!`).
-
-| Email | Role |
+| Perintah | Isi |
 | :--- | :--- |
-| alya@acme.test | owner |
-| bima@acme.test | admin |
-| citra@acme.test | member |
-| dimas@acme.test | member |
-| eka@client.test | viewer |
+| `pnpm typecheck` | TypeScript seluruh workspace |
+| `pnpm test` | Vitest unit test API (sanitizer Markdown/rich-text, rate limit, error handler, nama file lampiran) — tanpa database |
+| `pnpm test:all` | Keduanya berurutan |
 
-Workspace `acme-corp` berisi project **PRJ** (16 task, 3 milestone) dan **CORE** (5 task).
-Tanggal seed relatif terhadap hari ini sehingga metrik overdue/weekly selalu terisi.
+## Mulai Pertama Kali
+
+Database development kosong setelah migrasi — tidak ada akun, workspace, atau data contoh.
+
+1. Buka http://localhost:3000/login → **Create account**.
+2. Akun **pertama** yang terdaftar otomatis menjadi akun level owner (`users.can_create_workspace = true`)
+   dan diarahkan ke `/onboarding` untuk membuat workspace.
+3. Akun berikutnya hanya bisa masuk ke workspace setelah diundang lewat *Settings → Members*.

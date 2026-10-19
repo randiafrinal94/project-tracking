@@ -4,7 +4,6 @@ Dokumen ini mendokumentasikan terjemahan desain dari prototipe **Google Stitch**
 
 - **Sumber:** Stitch project `2820080197429906756` — design system **"Kinetic Slate"**, screen *Agile Project Tracking & Management Dashboard* dan *Task Detail Slide-out Drawer*.
 - **Implementasi token:** [apps/web/src/app/globals.css](apps/web/src/app/globals.css) (`@theme` Tailwind v4), disalin 1:1 dari `tailwind.config` HTML Stitch.
-- **Katalog komponen hidup:** halaman `/design-system` pada aplikasi web.
 
 > Bila dokumen ini dan HTML Stitch berbeda, **HTML Stitch yang berlaku** (lihat §5 untuk daftar koreksi).
 

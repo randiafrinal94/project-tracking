@@ -74,7 +74,7 @@ projects ───────────────────────�
 | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | PK, Default `uuid_generate_v4()` | ID Workspace |
 | `name` | `VARCHAR(150)` | NOT NULL | Nama ruang kerja / tim |
-| `slug` | `VARCHAR(150)` | UNIQUE, NOT NULL, CHECK kebab-case | URL identifier (e.g. `acme-corp`) |
+| `slug` | `VARCHAR(150)` | UNIQUE, NOT NULL, CHECK kebab-case | URL identifier (e.g. `marketing-team`) |
 | `owner_id` | `UUID` | FK -> `users(id)` ON DELETE RESTRICT, NOT NULL | Pemilik utama workspace |
 
 ### `workspace_members`
@@ -227,7 +227,7 @@ Trigger `AFTER` menulis `activity_logs` secara otomatis, sehingga audit trail ti
 | `trg_comments_activity` | `comment.created`, `comment.edited`, `comment.deleted` (`excerpt`) |
 
 - **Aktor:** API menjalankan setiap mutasi dalam transaksi dengan `SELECT set_config('app.actor_id', '<user uuid>', true)`; trigger membacanya lewat `activity_actor()`.
-- **Bypass:** `set_config('app.skip_activity', 'on', true)` mematikan log (dipakai seeder/import).
+- **Bypass:** `set_config('app.skip_activity', 'on', true)` mematikan log (mis. untuk import data massal).
 - **Metadata** selalu menyertakan `key` task (`PRJ-42`) agar feed bisa dirender tanpa join tambahan.
 - Perubahan yang hanya menyentuh `sort_order` / `task_counter` tidak dicatat.
 - DELETE hasil cascade (`pg_trigger_depth() > 1`) tidak dicatat, sehingga penghapusan workspace/project tidak gagal.

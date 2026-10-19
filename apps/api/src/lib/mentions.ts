@@ -2,7 +2,7 @@ import { users, workspaceMembers } from '@pt/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from './actor.js';
 
-/** Handle mention = bagian lokal email (lowercase), mis. `citra@acme.test` → `@citra`. */
+/** Handle mention = bagian lokal email (lowercase), mis. `budi@company.com` → `@budi`. */
 export const handleOf = (email: string) => email.split('@')[0]!.toLowerCase();
 
 const MENTION_RE = /(^|[\s(>])@([a-z0-9][a-z0-9._-]{0,63})/gi;

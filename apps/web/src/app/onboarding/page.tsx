@@ -78,7 +78,7 @@ function CreateWorkspace() {
             value={name}
             aria-invalid={!!error || undefined}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Acme Corp"
+            placeholder="e.g. Marketing Team"
           />
         </Field>
         <Button type="submit" variant="primary" size="lg" loading={pending} disabled={!name.trim()} className="w-full">

@@ -14,12 +14,10 @@
     "db:logs": "docker compose logs -f postgres",
     "db:generate": "pnpm --filter @pt/db generate",
     "db:migrate": "pnpm --filter @pt/db migrate",
-    "db:seed": "pnpm --filter @pt/db seed",
     "db:reset": "pnpm --filter @pt/db reset",
     "db:studio": "pnpm --filter @pt/db studio",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @pt/api test",
-    "test:e2e": "pnpm build:web && pnpm --filter @pt/e2e test",
-    "test:all": "pnpm typecheck && pnpm test && pnpm test:e2e"
+    "test:all": "pnpm typecheck && pnpm test"
   }
 }

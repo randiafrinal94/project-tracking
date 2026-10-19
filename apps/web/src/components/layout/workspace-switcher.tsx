@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn';
 import type { WorkspaceRef } from '@/lib/types';
 import { useMe } from '@/providers/auth-provider';
 
-/** Tombol workspace di atas nav (Stitch: "A  Acme Corp Labs  ⇕"). */
+/** Tombol workspace di atas nav: inisial · nama workspace · ⇕. */
 export function WorkspaceSwitcher({ current, compact }: { current: WorkspaceRef; compact?: boolean }) {
   const { user, workspaces } = useMe();
 
