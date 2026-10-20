@@ -6,7 +6,7 @@ import { TASK_STATUS } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from '@/components/ui/dropdown';
 import { Icon } from '@/components/ui/icon';
-import { MentionTextarea } from './mention-textarea';
+import { MentionTextarea, handleOf } from './mention-textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { useCommentActions, useTaskActivity, useTaskComments } from '@/hooks/task';
@@ -98,24 +98,38 @@ function CommentItem({
   comment,
   canEdit,
   canDelete,
+  canInteract,
   onEdit,
   onDelete,
+  onLike,
+  onReply,
   members,
 }: {
   comment: Comment;
   canEdit: boolean;
   canDelete: boolean;
+  /** Boleh suka & balas (member+). */
+  canInteract: boolean;
   onEdit: (body: string) => Promise<unknown>;
   onDelete: () => void;
+  onLike: (liked: boolean) => void;
+  onReply: () => void;
   members: WorkspaceMember[];
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.body);
   const [saving, setSaving] = useState(false);
+  const isReply = !!comment.parentId;
 
   return (
     <article className="flex items-start gap-space-md">
-      <Avatar name={comment.author?.fullName ?? 'Deleted user'} seed={comment.author?.id} src={comment.author?.avatarUrl} size="lg" ring />
+      <Avatar
+        name={comment.author?.fullName ?? 'Deleted user'}
+        seed={comment.author?.id}
+        src={comment.author?.avatarUrl}
+        size={isReply ? 'md' : 'lg'}
+        ring
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -174,14 +188,102 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <div
-            className="rich-text rounded-xl bg-surface-container-lowest p-space-md text-body-sm leading-normal text-on-surface shadow-xs"
-            // bodyHtml dirender & disanitasi (allowlist) oleh API.
-            dangerouslySetInnerHTML={{ __html: comment.bodyHtml }}
-          />
+          <>
+            <div
+              className="rich-text rounded-xl bg-surface-container-lowest p-space-md text-body-sm leading-normal text-on-surface shadow-xs"
+              // bodyHtml dirender & disanitasi (allowlist) oleh API.
+              dangerouslySetInnerHTML={{ __html: comment.bodyHtml }}
+            />
+            <div className="flex items-center gap-space-md pl-1 text-[12px]">
+              <button
+                type="button"
+                aria-pressed={comment.likedByMe}
+                aria-label={comment.likedByMe ? 'Unlike comment' : 'Like comment'}
+                disabled={!canInteract}
+                onClick={() => onLike(!comment.likedByMe)}
+                className={cn(
+                  'flex items-center gap-1 font-medium transition-colors disabled:cursor-default',
+                  comment.likedByMe ? 'text-primary' : 'text-outline enabled:hover:text-on-surface',
+                )}
+              >
+                <Icon name="thumb_up" size={15} filled={comment.likedByMe} />
+                {comment.likedByMe ? 'Liked' : 'Like'}
+                {comment.likeCount > 0 && <span className="tabular-nums">· {comment.likeCount}</span>}
+              </button>
+              {canInteract && (
+                <button
+                  type="button"
+                  onClick={onReply}
+                  className="flex items-center gap-1 font-medium text-outline transition-colors hover:text-on-surface"
+                >
+                  <Icon name="reply" size={15} />
+                  Reply
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
     </article>
+  );
+}
+
+function ReplyComposer({
+  currentUser,
+  members,
+  initial,
+  pending,
+  onSubmit,
+  onCancel,
+}: {
+  currentUser: UserRef;
+  members: WorkspaceMember[];
+  initial: string;
+  pending: boolean;
+  onSubmit: (body: string) => Promise<unknown>;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+
+  const submit = async () => {
+    const body = draft.trim();
+    if (!body) return;
+    await onSubmit(body);
+  };
+
+  return (
+    <div className="flex items-start gap-space-md">
+      <Avatar name={currentUser.fullName} seed={currentUser.id} src={currentUser.avatarUrl} size="md" ring />
+      <div className="flex flex-1 flex-col gap-2">
+        <MentionTextarea
+          rows={2}
+          value={draft}
+          members={members}
+          maxLength={10_000}
+          autoFocus
+          aria-label="Write a reply"
+          placeholder="Write a reply… (⌘/Ctrl + Enter to send)"
+          onValueChange={setDraft}
+          onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void submit();
+            } else if (e.key === 'Escape') {
+              onCancel();
+            }
+          }}
+        />
+        <div className="flex justify-end gap-1">
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="primary" loading={pending} disabled={!draft.trim()} onClick={() => void submit()}>
+            Reply
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -202,26 +304,67 @@ export function ActivityPanel({
 }) {
   const [tab, setTab] = useState<Tab>('all');
   const [draft, setDraft] = useState('');
+  const [replyTo, setReplyTo] = useState<{ rootId: string; prefill: string } | null>(null);
   const comments = useTaskComments(taskId);
   const activity = useTaskActivity(taskId);
   const actions = useCommentActions(taskId, projectId);
 
-  const commentItems = [...(comments.data?.items ?? [])].reverse(); // terbaru dulu
+  // Thread satu tingkat: komentar akar terbaru dulu, balasan kronologis di bawah induknya.
+  const allComments = comments.data?.items ?? [];
+  const commentItems = allComments.filter((c) => !c.parentId).reverse();
+  const repliesOf = (rootId: string) => allComments.filter((c) => c.parentId === rootId);
   const history = activity.data?.items ?? [];
   const systemItems = history.filter((a) => !a.action.startsWith('comment.'));
 
+  /** Membalas sebuah balasan → mention penulisnya agar konteks jelas (balasan tetap di thread akar). */
+  const startReply = (c: Comment) => {
+    const author = c.parentId && c.author?.id !== currentUser.id ? members.find((m) => m.userId === c.author?.id) : undefined;
+    setReplyTo({ rootId: c.parentId ?? c.id, prefill: author ? `@${handleOf(author.email)} ` : '' });
+  };
+
   type Entry = { at: string; node: ReactNode };
-  const commentNode = (c: Comment) => (
+  const commentItem = (c: Comment) => (
     <CommentItem
       key={c.id}
       comment={c}
       canEdit={c.author?.id === currentUser.id}
       canDelete={c.author?.id === currentUser.id || isAdmin}
+      canInteract={canComment}
       onEdit={(body) => actions.edit.mutateAsync({ id: c.id, body })}
       onDelete={() => actions.remove.mutate(c.id)}
+      onLike={(liked) => actions.like.mutate({ id: c.id, liked })}
+      onReply={() => startReply(c)}
       members={members}
     />
   );
+  const commentNode = (c: Comment) => {
+    const replies = repliesOf(c.id);
+    const composing = replyTo?.rootId === c.id;
+    return (
+      <div key={c.id} className="flex flex-col gap-3">
+        {commentItem(c)}
+        {(replies.length > 0 || composing) && (
+          <div className="ml-4 flex flex-col gap-3 border-l-2 border-surface-container pl-space-md sm:ml-11">
+            {replies.map(commentItem)}
+            {composing && (
+              <ReplyComposer
+                key={replyTo.prefill}
+                currentUser={currentUser}
+                members={members}
+                initial={replyTo.prefill}
+                pending={actions.add.isPending}
+                onCancel={() => setReplyTo(null)}
+                onSubmit={async (body) => {
+                  await actions.add.mutateAsync({ body, parentId: c.id });
+                  setReplyTo(null);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const entries: Entry[] =
     tab === 'comments'
@@ -239,7 +382,7 @@ export function ActivityPanel({
   const submit = async () => {
     const body = draft.trim();
     if (!body) return;
-    await actions.add.mutateAsync(body);
+    await actions.add.mutateAsync({ body });
     setDraft('');
   };
 

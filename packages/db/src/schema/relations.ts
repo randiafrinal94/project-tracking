@@ -1,7 +1,7 @@
 import { relations } from 'drizzle-orm';
 import { activityLogs } from './activity-logs.js';
 import { attachments } from './attachments.js';
-import { comments } from './comments.js';
+import { commentLikes, comments } from './comments.js';
 import { milestones } from './milestones.js';
 import { projects } from './projects.js';
 import { subtasks } from './subtasks.js';
@@ -77,9 +77,17 @@ export const subtasksRelations = relations(subtasks, ({ one }) => ({
   task: one(tasks, { fields: [subtasks.taskId], references: [tasks.id] }),
 }));
 
-export const commentsRelations = relations(comments, ({ one }) => ({
+export const commentsRelations = relations(comments, ({ one, many }) => ({
   task: one(tasks, { fields: [comments.taskId], references: [tasks.id] }),
   author: one(users, { fields: [comments.authorId], references: [users.id] }),
+  parent: one(comments, { fields: [comments.parentId], references: [comments.id], relationName: 'replies' }),
+  replies: many(comments, { relationName: 'replies' }),
+  likes: many(commentLikes),
+}));
+
+export const commentLikesRelations = relations(commentLikes, ({ one }) => ({
+  comment: one(comments, { fields: [commentLikes.commentId], references: [comments.id] }),
+  user: one(users, { fields: [commentLikes.userId], references: [users.id] }),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({

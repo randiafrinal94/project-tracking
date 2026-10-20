@@ -8,7 +8,8 @@ import { workspaces } from './workspaces.js';
 
 /**
  * Notifikasi in-app per penerima. `type`:
- *   task.assigned · comment.mention · comment.created (pada task yang di-assign/dilaporkan penerima)
+ *   task.assigned · comment.mention · comment.reply (komentar penerima dibalas)
+ *   · comment.created (pada task yang di-assign/dilaporkan penerima)
  */
 export const notifications = pgTable(
   'notifications',

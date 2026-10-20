@@ -71,6 +71,13 @@
       "when": 1792393006676,
       "tag": "0009_owner_can_create_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792463237068,
+      "tag": "0010_comment_replies_likes",
+      "breakpoints": true
     }
   ]
 }

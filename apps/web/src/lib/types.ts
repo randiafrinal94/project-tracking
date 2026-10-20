@@ -31,7 +31,7 @@ export type TaskSort = 'board' | 'due' | 'priority' | 'updated' | 'created' | 't
 
 export interface AppNotification {
   id: string;
-  type: 'task.assigned' | 'comment.mention' | 'comment.created';
+  type: 'task.assigned' | 'comment.mention' | 'comment.reply' | 'comment.created';
   projectId: string | null;
   taskId: string | null;
   metadata: { key?: string; title?: string; excerpt?: string; commentId?: string };
@@ -225,6 +225,8 @@ export interface TaskDetail extends TaskCard {
 export interface Comment {
   id: string;
   taskId: string;
+  /** Komentar akar bila ini balasan (thread satu tingkat). */
+  parentId: string | null;
   body: string;
   /** HTML yang sudah disanitasi server — aman dirender langsung. */
   bodyHtml: string;
@@ -232,6 +234,8 @@ export interface Comment {
   updatedAt: string;
   author: UserRef | null;
   edited: boolean;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 export interface Attachment {

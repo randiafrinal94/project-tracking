@@ -234,7 +234,8 @@ export function useCommentActions(taskId: string, projectId: string) {
     patchCardInBoard(queryClient, projectId, taskId, (card) => ({ ...card, commentCount: Math.max(0, card.commentCount + delta) }));
 
   const add = useMutation({
-    mutationFn: (body: string) => api<Comment>(`/tasks/${taskId}/comments`, { method: 'POST', body: { body } }),
+    mutationFn: ({ body, parentId }: { body: string; parentId?: string }) =>
+      api<Comment>(`/tasks/${taskId}/comments`, { method: 'POST', body: { body, parentId } }),
     onSuccess: (comment) => {
       queryClient.setQueryData<Page<Comment>>(key, (page) => (page ? { ...page, items: [...page.items, comment] } : page));
       bumpCount(1);
@@ -259,13 +260,15 @@ export function useCommentActions(taskId: string, projectId: string) {
     mutationFn: (id: string) => api(`/comments/${id}`, { method: 'DELETE' }),
     onMutate: (id) => {
       const previous = queryClient.getQueryData<Page<Comment>>(key);
+      // Menghapus komentar akar ikut menghapus balasannya (sama dengan API).
+      const removed = previous?.items.filter((c) => c.id === id || c.parentId === id).length ?? 1;
       queryClient.setQueryData<Page<Comment>>(key, (page) =>
-        page ? { ...page, items: page.items.filter((c) => c.id !== id) } : page,
+        page ? { ...page, items: page.items.filter((c) => c.id !== id && c.parentId !== id) } : page,
       );
-      return { previous };
+      return { previous, removed };
     },
-    onSuccess: () => {
-      bumpCount(-1);
+    onSuccess: (_data, _id, ctx) => {
+      bumpCount(-(ctx?.removed ?? 1));
       after();
     },
     onError: (e, _id, ctx) => {
@@ -274,5 +277,35 @@ export function useCommentActions(taskId: string, projectId: string) {
     },
   });
 
-  return { add, edit, remove };
+  const like = useMutation({
+    mutationFn: ({ id, liked }: { id: string; liked: boolean }) =>
+      api<Pick<Comment, 'id' | 'likeCount' | 'likedByMe'>>(`/comments/${id}/like`, { method: liked ? 'POST' : 'DELETE' }),
+    onMutate: ({ id, liked }) => {
+      const previous = queryClient.getQueryData<Page<Comment>>(key);
+      queryClient.setQueryData<Page<Comment>>(key, (page) =>
+        page
+          ? {
+              ...page,
+              items: page.items.map((c) =>
+                c.id === id && c.likedByMe !== liked
+                  ? { ...c, likedByMe: liked, likeCount: Math.max(0, c.likeCount + (liked ? 1 : -1)) }
+                  : c,
+              ),
+            }
+          : page,
+      );
+      return { previous };
+    },
+    onSuccess: (state) => {
+      queryClient.setQueryData<Page<Comment>>(key, (page) =>
+        page ? { ...page, items: page.items.map((c) => (c.id === state.id ? { ...c, ...state } : c)) } : page,
+      );
+    },
+    onError: (e, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(key, ctx.previous);
+      toast({ tone: 'error', title: 'Could not update like', description: (e as Error).message });
+    },
+  });
+
+  return { add, edit, remove, like };
 }

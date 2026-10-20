@@ -58,7 +58,8 @@ export function MetaRail({
   const [estimateDraft, setEstimateDraft] = useState('');
   const [newTag, setNewTag] = useState('');
 
-  const assignable = members.filter((m) => m.role !== 'viewer');
+  // Task hanya di-assign ke role member; owner/admin/viewer tidak muncul di pilihan.
+  const assignable = members.filter((m) => m.role === 'member');
   const assigneeMember = members.find((m) => m.userId === task.assignee?.id);
   const milestone = milestones.find((m) => m.id === task.milestoneId);
   const estimate = task.estimateHours;
@@ -143,6 +144,9 @@ export function MetaRail({
                     </span>
                   </DropdownItem>
                 ))}
+                {assignable.length === 0 && (
+                  <p className="px-3 py-2 text-body-sm text-on-surface-variant">No members to assign</p>
+                )}
               </DropdownContent>
             </Dropdown>
           )}

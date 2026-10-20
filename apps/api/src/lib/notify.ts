@@ -1,7 +1,7 @@
 import { notifications, type NewNotification } from '@pt/db';
 import type { Tx } from './actor.js';
 
-export type NotificationType = 'task.assigned' | 'comment.mention' | 'comment.created';
+export type NotificationType = 'task.assigned' | 'comment.mention' | 'comment.reply' | 'comment.created';
 
 /**
  * Buat notifikasi in-app (dalam transaksi yang sama dengan perubahan pemicunya).

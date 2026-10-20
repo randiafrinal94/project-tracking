@@ -23,6 +23,7 @@ interface Inbox {
 const VERB: Record<AppNotification['type'], { text: string; icon: string; tone: string }> = {
   'task.assigned': { text: 'assigned you to', icon: 'person_add', tone: 'bg-primary-container' },
   'comment.mention': { text: 'mentioned you in', icon: 'alternate_email', tone: 'bg-secondary' },
+  'comment.reply': { text: 'replied to your comment on', icon: 'reply', tone: 'bg-secondary' },
   'comment.created': { text: 'commented on', icon: 'chat_bubble', tone: 'bg-tertiary-container' },
 };
 
