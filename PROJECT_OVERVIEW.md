@@ -599,7 +599,7 @@ pnpm dev:web      # terminal 2 — Web di http://localhost:3000
 | `pnpm typecheck` / `pnpm test` / `pnpm test:all` | Typecheck, unit test, atau keduanya |
 
 Variabel lingkungan penting (`.env`): `DATABASE_URL`, `API_PORT`, `WEB_ORIGIN`, `JWT_SECRET` (min. 32 karakter),
-`JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS`, `AUTH_RATE_LIMIT_PER_MINUTE`, `STORAGE_DIR`, `MAX_UPLOAD_MB`.
+`JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS`, `SESSION_MAX_AGE_DAYS`, `AUTH_RATE_LIMIT_PER_MINUTE`, `STORAGE_DIR`, `MAX_UPLOAD_MB`.
 
 Database development kosong setelah migrasi. Ikuti [alur instalasi baru](#alur-instalasi-baru) untuk membuat akun dan workspace pertama.
 Untuk backup/restore data, lihat [DB_EXPORT_IMPORT.md](DB_EXPORT_IMPORT.md).

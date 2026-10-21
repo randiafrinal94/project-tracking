@@ -20,7 +20,10 @@ const schema = z
       .transform((v) => v.split(',').map((o) => o.trim()).filter(Boolean)),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET minimal 32 karakter'),
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
-    REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+    /** Batas idle: refresh token yang tidak dipakai selama ini kedaluwarsa. */
+    REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+    /** Batas mutlak sesi sejak login; setelahnya user wajib login ulang walau aktif. */
+    SESSION_MAX_AGE_DAYS: z.coerce.number().int().positive().default(7),
     AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
     /** Folder lampiran (disk lokal). Relatif terhadap root monorepo bila tidak absolut. */
     STORAGE_DIR: z.string().default('storage/uploads'),

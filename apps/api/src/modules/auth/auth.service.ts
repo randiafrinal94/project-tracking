@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { refreshTokens, users, workspaceMembers, workspaces, type User } from '@pt/db';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, min, sql } from 'drizzle-orm';
 import { env } from '../../config/env.js';
 import { db } from '../../db.js';
 import { AppError, conflict, notFound, unauthorized } from '../../lib/errors.js';
@@ -33,9 +33,16 @@ async function issueSession(
   user: User,
   userAgent: string | undefined,
   familyId: string = randomUUID(),
+  sessionStartedAt: Date = new Date(),
 ) {
   const refreshToken = generateRefreshToken();
-  const refreshExpiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 86_400_000);
+  // Idle TTL dibatasi batas mutlak sesi agar rotasi token tidak memperpanjang login selamanya.
+  const refreshExpiresAt = new Date(
+    Math.min(
+      Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 86_400_000,
+      sessionStartedAt.getTime() + env.SESSION_MAX_AGE_DAYS * 86_400_000,
+    ),
+  );
 
   await db.insert(refreshTokens).values({
     userId: user.id,
@@ -121,7 +128,18 @@ export async function refresh(rawToken: string, userAgent?: string): Promise<Ses
   const [user] = await db.select().from(users).where(eq(users.id, stored.userId)).limit(1);
   if (!user) throw unauthorized('Invalid refresh token', 'INVALID_REFRESH_TOKEN');
 
-  return issueSession(user, userAgent, stored.familyId);
+  // Waktu login awal = token tertua dalam family (token lama tetap tersimpan sebagai revoked).
+  const [{ startedAt } = { startedAt: null }] = await db
+    .select({ startedAt: min(refreshTokens.createdAt) })
+    .from(refreshTokens)
+    .where(eq(refreshTokens.familyId, stored.familyId));
+  const sessionStartedAt = startedAt ?? stored.createdAt;
+  if (sessionStartedAt.getTime() + env.SESSION_MAX_AGE_DAYS * 86_400_000 <= Date.now()) {
+    await revokeFamily(stored.familyId);
+    throw unauthorized('Session has expired, please sign in again', 'SESSION_EXPIRED');
+  }
+
+  return issueSession(user, userAgent, stored.familyId, sessionStartedAt);
 }
 
 export async function logout(rawToken: string): Promise<void> {
